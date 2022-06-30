@@ -26,3 +26,9 @@ class Sphere:
                 return dist
 
         return None
+
+    def normal(self, surfacePoint):
+        """
+        Returns surface normal to the point on sphere's surface.
+        """
+        return (surfacePoint - self.center).normalize()
