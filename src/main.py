@@ -1,23 +1,22 @@
-from image import Image
 from color import Color
+from vector import Vector3
+from point import Point
+from sphere import Sphere
+from scene import Scene
+from engine import RenderEngine
 
 
 def main():
-    WIDTH, HEIGHT = 3, 2
-    im = Image(WIDTH, HEIGHT)
-    red = Color(1, 0, 0)
-    green = Color(0, 1, 0)
-    blue = Color(0, 0, 1)
-    im.setPixel(0, 0, red)
-    im.setPixel(1, 0, green)
-    im.setPixel(2, 0, blue)
+    WIDTH, HEIGHT = 320, 200
 
-    im.setPixel(0, 1, red + green)
-    im.setPixel(1, 1, green + blue + green)
-    im.setPixel(2, 1, red * 0.001)
+    camera = Vector3(0, 0, -1.0)
+    objects = [Sphere(Point(0, 0, 0), 0.5, Color.from_hex("#FF0000"))]
+    scene = Scene(camera, objects, WIDTH, HEIGHT)
+    engine = RenderEngine()
+    image = engine.render(scene)
 
     with open("../test.ppm", "w") as imgFile:
-        im.write_ppm(imgFile)
+        image.write_ppm(imgFile)
 
 
 if __name__ == '__main__':
