@@ -13,10 +13,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("imageout", help="Path to rendered image")
     args = parser.parse_args()
-    WIDTH, HEIGHT = 320, 200
+    WIDTH, HEIGHT = 800, 600
 
     camera = Vector3(0, 0, -1.0)
-    objects = [Sphere(Point(0, 0, 0), 0.5, Material(Color.from_hex("#FF0000")))]
+    objects = [Sphere(Point(0, 0, 0), 0.25, Material(Color.from_hex("#FF0000")))]
     lights = [Light(Point(1.5, -0.5, -10.0), Color.from_hex("#FFFFFF"))]
     scene = Scene(camera, objects, lights, WIDTH, HEIGHT)
     engine = RenderEngine()
