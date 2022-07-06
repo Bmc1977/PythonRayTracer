@@ -1,28 +1,20 @@
-from color import Color
-from vector import Vector3
-from point import Point
-from sphere import Sphere
+import argparse
+import importlib
 from scene import Scene
 from engine import RenderEngine
-from light import Light
-from material import Material
-import argparse
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("imageout", help="Path to rendered image")
+    parser.add_argument("scene", help="Path to scene file (without .py extension)")
     args = parser.parse_args()
-    WIDTH, HEIGHT = 800, 600
+    mod = importlib.import_module(args.scene)
 
-    camera = Vector3(0, 0, -1.0)
-    objects = [Sphere(Point(0, 0, 0), 0.25, Material(Color.from_hex("#FF0000")))]
-    lights = [Light(Point(1.5, -0.5, -10.0), Color.from_hex("#FFFFFF"))]
-    scene = Scene(camera, objects, lights, WIDTH, HEIGHT)
+    scene = Scene(mod.CAMERA, mod.OBJECTS, mod.LIGHTS, mod.WIDTH, mod.HEIGHT)
     engine = RenderEngine()
     image = engine.render(scene)
 
-    with open("../{}".format(args.imageout), "w") as imgFile:
+    with open("../{}".format(mod.RENDERED_IMG), "w") as imgFile:
         image.write_ppm(imgFile)
 
 

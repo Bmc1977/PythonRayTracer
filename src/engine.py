@@ -9,6 +9,9 @@ class RenderEngine:
     Renders 3D objects into 2D objects using ray tracing.
     """
 
+    MAX_DEPTH = 7
+    MIN_DISPLACE = 0.0001
+
     def render(self, scene):
         width = scene.width
         height = scene.height
@@ -35,7 +38,7 @@ class RenderEngine:
             print("{:3.0f}%".format(float(j)/float(height) * 100))
         return pixels
 
-    def rayTrace(self, ray, scene):
+    def rayTrace(self, ray, scene, depth=0):
         color = Color(0, 0, 0)
         #Find the nearest object hit by the ray
         distHit, objHit = self.findNearest(ray, scene)
@@ -44,6 +47,12 @@ class RenderEngine:
         hitPos = ray.origin + ray.direction * distHit
         hitNormal = objHit.normal(hitPos)
         color += self.colorAt(objHit, hitPos, hitNormal, scene)
+        if (depth < self.MAX_DEPTH):
+            newRayPos = hitPos + hitNormal * self. MIN_DISPLACE
+            newRayDir = ray.direction - 2 * ray.direction.dot(hitNormal) * hitNormal
+            newRay = Ray(newRayPos, newRayDir)
+            #Reflected light losing energy
+            color += self.rayTrace(newRay, scene, depth+1) * objHit.material.reflection
         return color
 
     def findNearest(self, ray, scene):
