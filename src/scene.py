@@ -1,6 +1,3 @@
-import self as self
-
-
 class Scene:
     """
     Scene has all the information needed for the ray tracing engine.

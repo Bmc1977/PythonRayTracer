@@ -9,7 +9,7 @@ class RenderEngine:
     Renders 3D objects into 2D objects using ray tracing.
     """
 
-    MAX_DEPTH = 7
+    MAX_DEPTH = 12
     MIN_DISPLACE = 0.0001
 
     def render(self, scene):
@@ -35,7 +35,7 @@ class RenderEngine:
                 x = x0 + (i * xstep)
                 ray = Ray(camera, Point(x, y) - camera)
                 pixels.setPixel(i, j, self.rayTrace(ray, scene))
-            print("{:3.0f}%".format(float(j)/float(height) * 100))
+            print("\r{:3.0f}%".format(float(j)/float(height) * 100), end="")
         return pixels
 
     def rayTrace(self, ray, scene, depth=0):
