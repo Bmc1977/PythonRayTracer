@@ -2,6 +2,10 @@ from image import Image
 from point import Point
 from ray import Ray
 from color import Color
+import tempfile
+import shutil
+from pathlib import Path
+from multiprocessing import Value, Process
 
 
 class RenderEngine:
@@ -12,71 +16,106 @@ class RenderEngine:
     MAX_DEPTH = 12
     MIN_DISPLACE = 0.0001
 
-    def render(self, scene):
+    def render_multi_process(self, scene, process_count, img_file):
+        def split_range(count, parts):
+            d, r = divmod(count, parts)
+            return [
+                (i * d + min(i, r), (i + 1) * d + min(i + 1, r)) for i in range(parts)
+            ]
+
+        width, height = scene.width, scene.height
+        ranges = split_range(height, process_count)
+        temp_dir = Path(tempfile.mkdtemp())
+        temp_file_tmpl = "raytracing-{}.tmp"
+        processes = []
+        try:
+            rows_done = Value('i', 0)
+            for hmin, hmax in ranges:
+                part_file = temp_dir / temp_file_tmpl.format(hmin)
+                processes.append(Process(target=self.render, args=(scene, hmin, hmax, part_file, rows_done)))
+            #start processes
+            for process in processes:
+                process.start()
+            for process in processes:
+                process.join()
+            Image.write_ppm_header(img_file, height=height, width=width)
+            for hmin, _ in ranges:
+                part_file = temp_dir / temp_file_tmpl.format(hmin)
+                img_file.write(open(part_file, "r").read())
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def render(self, scene, hmin, hmax, part_file, rows_done):
         width = scene.width
         height = scene.height
 
-        aspectratio = float(width) / height
+        aspect_ratio = float(width) / height
 
         x0 = -1.0
         x1 = 1.0
         xstep = (x1 - x0) / (width - 1)
 
-        y0 = -1.0 / aspectratio
-        y1 = 1.0 / aspectratio
+        y0 = -1.0 / aspect_ratio
+        y1 = 1.0 / aspect_ratio
         ystep = (y1 - y0) / (height - 1)
 
         camera = scene.camera
-        pixels = Image(width, height)
+        pixels = Image(width, hmax-hmin)
 
-        for j in range(height):
+        for j in range(hmin, hmax):
             y = y0 + (j * ystep)
             for i in range(width):
                 x = x0 + (i * xstep)
                 ray = Ray(camera, Point(x, y) - camera)
-                pixels.setPixel(i, j, self.rayTrace(ray, scene))
-            print("\r{:3.0f}%".format(float(j)/float(height) * 100), end="")
+                pixels.set_pixel(i, j-hmin, self.ray_trace(ray, scene))
+            #update progress bar
+            if rows_done:
+                with rows_done.get_lock():
+                    rows_done.value += 1
+                    print("\r{:3.0f}%".format(float(rows_done.value) / float(height) * 100), end="")
+        with open(part_file, 'w') as part_file_obj:
+            pixels.write_ppm_raw(part_file_obj)
         return pixels
 
-    def rayTrace(self, ray, scene, depth=0):
+    def ray_trace(self, ray, scene, depth=0):
         color = Color(0, 0, 0)
-        #Find the nearest object hit by the ray
-        distHit, objHit = self.findNearest(ray, scene)
-        if objHit is None:
+        # Find the nearest object hit by the ray
+        dist_hit, obj_hit = self.find_nearest(ray, scene)
+        if obj_hit is None:
             return color
-        hitPos = ray.origin + ray.direction * distHit
-        hitNormal = objHit.normal(hitPos)
-        color += self.colorAt(objHit, hitPos, hitNormal, scene)
-        if (depth < self.MAX_DEPTH):
-            newRayPos = hitPos + hitNormal * self. MIN_DISPLACE
-            newRayDir = ray.direction - 2 * ray.direction.dot(hitNormal) * hitNormal
-            newRay = Ray(newRayPos, newRayDir)
-            #Reflected light losing energy
-            color += self.rayTrace(newRay, scene, depth+1) * objHit.material.reflection
+        hit_pos = ray.origin + ray.direction * dist_hit
+        hit_normal = obj_hit.normal(hit_pos)
+        color += self.color_at(obj_hit, hit_pos, hit_normal, scene)
+        if depth < self.MAX_DEPTH:
+            new_ray_pos = hit_pos + hit_normal * self.MIN_DISPLACE
+            new_ray_dir = ray.direction - 2 * ray.direction.dot(hit_normal) * hit_normal
+            new_ray = Ray(new_ray_pos, new_ray_dir)
+            # Reflected light losing energy
+            color += self.ray_trace(new_ray, scene, depth + 1) * obj_hit.material.reflection
         return color
 
-    def findNearest(self, ray, scene):
-        distMin = None
-        objHit = None
+    def find_nearest(self, ray, scene):
+        dist_min = None
+        obj_hit = None
         for obj in scene.objects:
             dist = obj.intersects(ray)
-            if dist is not None and (objHit is None or dist < distMin):
-                distMin = dist
-                objHit = obj
-        return distMin, objHit
+            if dist is not None and (obj_hit is None or dist < dist_min):
+                dist_min = dist
+                obj_hit = obj
+        return dist_min, obj_hit
 
-    def colorAt(self, objHit, hitPos, normal, scene):
-        material = objHit.material
-        objColor = material.colorAt(hitPos)
-        toCam = scene.camera - hitPos
-        specularK = 50
-        color = material.ambient * Color.from_hex("#000000")
-        #Light calculations
+    def color_at(self, obj_hit, hit_pos, normal, scene):
+        material = obj_hit.material
+        obj_color = material.color_at(hit_pos)
+        to_cam = scene.camera - hit_pos
+        specular_k = 50
+        color = material.ambient * Color.from_hex("#FFFFFF")
+        # Light calculations
         for light in scene.lights:
-            toLight = Ray(hitPos, light.position - hitPos)
-            #Diffuse shading
-            color += objColor * material.diffuse * max(normal.dot(toLight.direction), 0)
-            #Specular shading
-            halfVector = (toLight.direction + toCam).normalize()
-            color += light.color * material.specular * max(normal.dot(halfVector), 0) ** specularK
+            to_light = Ray(hit_pos, light.position - hit_pos)
+            # Diffuse shading
+            color += obj_color * material.diffuse * max(normal.dot(to_light.direction), 0)
+            # Specular shading
+            halfVector = (to_light.direction + to_cam).normalize()
+            color += light.color * material.specular * max(normal.dot(halfVector), 0) ** specular_k
         return color

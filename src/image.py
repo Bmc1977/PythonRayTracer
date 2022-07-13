@@ -4,14 +4,21 @@ class Image:
         self.height = height
         self.pixels = [[None for _ in range(width)] for _ in range(height)]
 
-    def setPixel(self, x, y, col):
+    def set_pixel(self, x, y, col):
         self.pixels[y][x] = col
 
     def write_ppm(self, img_file):
-        def to_byte(c):
-            return round(max(min(c*255, 255), 0))
+        Image.write_ppm_header(img_file, height=self.height, width=self.width)
+        self.write_ppm_raw(img_file)
 
-        img_file.write("P3 {} {}\n255\n".format(self.width, self.height))
+    @staticmethod
+    def write_ppm_header(img_file, height=None, width=None):
+        img_file.write("P3 {} {}\n255\n".format(width, height))
+
+    def write_ppm_raw(self, img_file):
+        def to_byte(c):
+            return round(max(min(c * 255, 255), 0))
+
         for row in self.pixels:
             for color in row:
                 img_file.write("{} {} {} ".format(to_byte(color.x), to_byte(color.y), to_byte(color.z)))

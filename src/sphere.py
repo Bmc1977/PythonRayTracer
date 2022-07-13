@@ -15,9 +15,9 @@ class Sphere:
         """
         Checks if ray intersects this sphere. Returns distance to intersection or None if no intersection.
         """
-        sphereToRay = ray.origin - self.center
-        b = 2 * ray.direction.dot(sphereToRay)
-        c = sphereToRay.dot(sphereToRay) - self.radius ** 2
+        sphere_to_ray = ray.origin - self.center
+        b = 2 * ray.direction.dot(sphere_to_ray)
+        c = sphere_to_ray.dot(sphere_to_ray) - self.radius ** 2
         discriminant = b * b - 4 * c
 
         if discriminant >= 0:
@@ -27,8 +27,8 @@ class Sphere:
 
         return None
 
-    def normal(self, surfacePoint):
+    def normal(self, surface_point):
         """
         Returns surface normal to the point on sphere's surface.
         """
-        return (surfacePoint - self.center).normalize()
+        return (surface_point - self.center).normalize()
